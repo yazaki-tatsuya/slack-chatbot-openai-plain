@@ -1,0 +1,6 @@
+requests
+Flask==2.2.2
+slack_bolt
+slack_sdk
+openai==0.27.4
+python-dotenv==1.0.0
