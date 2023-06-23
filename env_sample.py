@@ -2,6 +2,12 @@ def get_env_variable(key):
 
     env_variable_dict = {
         # ------------------------------------
+        # Azure Storage
+        # ------------------------------------
+        "AZURE_STORAGE_NAME" : "",
+        "AZURE_STORAGE_KEY" : "",
+
+        # ------------------------------------
         # OpenAI
         # ------------------------------------
         "OPEN_AI_KEY" : "",
