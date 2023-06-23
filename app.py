@@ -15,6 +15,8 @@ import traceback
 # OpenAI
 import openai
 import pkg_resources
+# Azure Storage
+import azure_table_utils as azure_table
 
 # モードに応じて書き換え
 BOT_USER_ID = env.get_env_variable("BOT_USER_ID")
@@ -96,18 +98,36 @@ def respondToRequestMsg(body, client:WebClient, ack):
             channel = body["event"]["channel"]
             ts = body["event"]["ts"]
             thread_ts = body["event"].get("thread_ts", None)
+            
             user = body["event"]["user"]
             attachment_files = body["event"].get("files", None)
 
             # OpenAIからの返答を生成
             output_text = generate_response(input_text)
-            time.sleep(3)  # n秒待機 (実施しないと「The server responded with: {'ok': False, 'error': 'no_text'}」になる)
+            time.sleep(5)  # n秒待機 (実施しないと「The server responded with: {'ok': False, 'error': 'no_text'}」になる)
             # Slackに返答
             client.chat_postMessage(channel=channel, text=output_text ,thread_ts=ts)
+        
+            # 投稿内容をDBに保存
+            storage_name = env.get_env_variable("AZURE_STORAGE_NAME")
+            storage_key = env.get_env_variable("AZURE_STORAGE_KEY")
+            client_table_stoarge = azure_table.AzureTableStorageUtils(storage_name, storage_key)
+            params = {
+                "PartitionKey":channel,
+                "RowKey":ts,
+                "ChannelId":channel, 
+                "PosterUserDisplayName":user,
+                # "PosterUserId":user_id,
+                # "PosterUserName":user_name,
+            }
+            client_table_stoarge.insert_or_replace_entity('TestTable', params)
+
+            print("-------------------------------------------------")
+            print("======== respondToRequestMsg - Azure StorageへのINSERT完了："+str(client_table_stoarge))
 
         except Exception as e:
             print("-------------------------------------------------")
-            print("======== react_to_msg 例外発生："+str(e))
+            print("======== respondToRequestMsg 例外発生："+str(e))
             traceback.print_exc()
 
 
