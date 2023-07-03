@@ -15,6 +15,7 @@ import traceback
 # OpenAI
 import openai
 import pkg_resources
+import respond_to_message
 # Azure Storage
 import azure_table_utils as azure_table
 
@@ -90,73 +91,7 @@ def respondToRequestMsg(body, client:WebClient, ack):
     type = body["event"].get("type", None)
     # 二重で応答するのを防ぐため、メンションの時のイベントのみ応答対象とする
     if type == 'app_mention':
-        try:
-            #-----------------------------------
-            # Slackのイベント情報から各種パラメータを取得
-            input_text = body["event"].get("text", None)
-            bot_user_id = os.environ.get('BOT_USER_ID')
-            channel = body["event"]["channel"]
-            ts = body["event"]["ts"]
-            thread_ts = body["event"].get("thread_ts", None)
-            
-            user = body["event"]["user"]
-            attachment_files = body["event"].get("files", None)
-
-            # OpenAIからの返答を生成
-            output_text = generate_response(input_text)
-            time.sleep(5)  # n秒待機 (実施しないと「The server responded with: {'ok': False, 'error': 'no_text'}」になる)
-            # Slackに返答
-            client.chat_postMessage(channel=channel, text=output_text ,thread_ts=ts)
-        
-            # 投稿内容をDBに保存
-            storage_name = env.get_env_variable("AZURE_STORAGE_NAME")
-            storage_key = env.get_env_variable("AZURE_STORAGE_KEY")
-            client_table_stoarge = azure_table.AzureTableStorageUtils(storage_name, storage_key)
-            params = {
-                "PartitionKey":channel,
-                "RowKey":ts,
-                "ChannelId":channel, 
-                "PosterUserDisplayName":user,
-                # "PosterUserId":user_id,
-                # "PosterUserName":user_name,
-            }
-            client_table_stoarge.insert_or_replace_entity('TestTable', params)
-
-            print("-------------------------------------------------")
-            print("======== respondToRequestMsg - Azure StorageへのINSERT完了："+str(client_table_stoarge))
-
-        except Exception as e:
-            print("-------------------------------------------------")
-            print("======== respondToRequestMsg 例外発生："+str(e))
-            traceback.print_exc()
-
-
-# 前回の会話のリスト
-previous_conversation = []
-def generate_response(prompt):
-
-    global previous_conversation  # 前回の会話のリストをグローバル変数として使用する
-    print(previous_conversation)
-    # previous_conversationは前回の発言のリストです
-    # ここでは、previous_conversationをテキストに変換して、promptに追加しています
-    prompt = "".join(previous_conversation) + "\n" + prompt
-    print("-------------------------------------------------"+prompt)
-
-    # APIを使用して、応答を生成します
-    response = openai.Completion.create(
-        model="text-davinci-003",
-        prompt=prompt,
-        max_tokens=200,
-        n=1,
-        stop=None,
-        temperature=0.5,
-    )
-
-    # 応答のテキストを取得します
-    message = response.choices[0].text.strip()
-    # previous_conversationの最大長を10に制限する
-    previous_conversation = previous_conversation[-9:] + [prompt, message]
-    return message
+        respond_to_message.respond_to_message(body=body,client=client)
 
 # __name__はPythonにおいて特別な意味を持つ変数です。
 # 具体的にはスクリプトの名前を値として保持します。
