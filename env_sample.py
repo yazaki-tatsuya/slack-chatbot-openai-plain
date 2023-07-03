@@ -8,9 +8,22 @@ def get_env_variable(key):
         "AZURE_STORAGE_KEY" : "",
 
         # ------------------------------------
-        # OpenAI
+        # OpenAI(Azure)
+        # ------------------------------------
+        # "OPEN_AI_KEY" : "",
+        # "OPEN_AI_BASE" : "https://aaaaa.openai.azure.com/",
+        # "OPEN_AI_TYPE" : 'azure',
+        # "OPEN_AI_VERSION" : '2023-03-15-preview',
+        # "OPEN_AI_DEPLOY_NAME" : 'gpt4_32k',
+        # "MODEL" : '',
+        # "SYSTEM_MESSAGE" : "あなたはキャリアコンサルタントです。クライアントに寄り添い、問いかけを行い、内省を促してください。",
+
+        # ------------------------------------
+        # OpenAI(Rainbow)
         # ------------------------------------
         "OPEN_AI_KEY" : "",
+        "MODEL" : "",
+        "SYSTEM_MESSAGE" : "あなたはキャリアコンサルタントです。クライアントに寄り添い、問いかけを行い、内省を促してください。",
 
         # ------------------------------------
         # App名：Slack_Python_Flask
