@@ -12,6 +12,7 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 import env
 # ロギング
 import traceback
+from log_utils import prepare_logger
 # OpenAI
 import openai
 import pkg_resources
@@ -87,11 +88,13 @@ def slack_events():
 @s_app.event("message")
 @s_app.event("app_mention")
 def respondToRequestMsg(body, client:WebClient, ack):
+    logger = prepare_logger()
     ack()
     type = body["event"].get("type", None)
     # 二重で応答するのを防ぐため、メンションの時のイベントのみ応答対象とする
+    logger.info(f"respondToRequestMsg - イベント種別： {type}")
     if type == 'app_mention':
-        respond_to_message.respond_to_message(body=body,client=client)
+        respond_to_message.respond_to_message(body=body,client=client,logger)
 
 # __name__はPythonにおいて特別な意味を持つ変数です。
 # 具体的にはスクリプトの名前を値として保持します。
