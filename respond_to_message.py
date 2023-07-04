@@ -17,8 +17,9 @@ from langchain.schema import HumanMessage
 
 # ロギング
 import traceback
+import logging
 
-def respond_to_message(body, client: WebClient):
+def respond_to_message(body, client: WebClient,logger:logging.Logger):
     try:
         #-----------------------------------
         # Slackのイベント情報から各種パラメータを取得
@@ -46,7 +47,7 @@ def respond_to_message(body, client: WebClient):
         # メッセージ情報の構築
         conversation_info.build_messages()
 
-        print("==============="+str(conversation_info._messages))
+        logger.info(f"respond_to_message - メッセージのビルド完了： {str(conversation_info._messages)}")
         # OpenAIからの返答を生成
         
         output_text = generate_response_v2(str(conversation_info._messages))
@@ -55,8 +56,7 @@ def respond_to_message(body, client: WebClient):
         client.chat_postMessage(channel=channel, text=output_text ,thread_ts=ts)
 
     except Exception as e:
-        print("-------------------------------------------------")
-        print("======== react_to_msg 例外発生："+str(e))
+        logger.info(f"respond_to_message - 例外発生： {str(e)}")
         traceback.print_exc()
 
 def generate_response_v2(prompt) ->str:
