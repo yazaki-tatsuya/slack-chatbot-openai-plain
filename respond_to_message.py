@@ -19,6 +19,22 @@ from langchain.schema import HumanMessage
 import traceback
 import logging
 
+# Loadingメッセージのblocks
+SLACK_LOADING_MESSAGE_VIEW = \
+{
+    "blocks": [
+        {
+            "type": "context",
+            "elements": [
+                {
+                    "type": "mrkdwn",
+                    "text": ":now-loading:"
+                }
+            ]
+        }
+    ]
+}
+
 def respond_to_message(body, client: WebClient,logger:logging.Logger):
     try:
         #-----------------------------------
@@ -31,6 +47,12 @@ def respond_to_message(body, client: WebClient,logger:logging.Logger):
         input_text = schema.HumanMessage(content=body["event"].get("text", None))
         attachment_files = body["event"].get("files", None)
         system_message = schema.SystemMessage(content=env.get_env_variable('SYSTEM_MESSAGE'))
+
+        #-----------------------------------
+        # Loadingメッセージを通知
+        #-----------------------------------
+        resp = client.chat_postMessage(channel=channel, thread_ts=ts, blocks=SLACK_LOADING_MESSAGE_VIEW["blocks"])
+        loading_message_ts = resp.get("ts", None)
 
         # やり取りに関するインスタンス生成
         conversation_info = conversation_util.ConversationInfoSlack(
@@ -58,6 +80,10 @@ def respond_to_message(body, client: WebClient,logger:logging.Logger):
     except Exception as e:
         logger.info(f"respond_to_message - 例外発生： {str(e)}")
         traceback.print_exc()
+
+    finally:
+        # Loadingメッセージを削除
+        client.chat_delete(channel=channel, ts=loading_message_ts)
 
 def generate_response_v2(prompt) ->str:
 

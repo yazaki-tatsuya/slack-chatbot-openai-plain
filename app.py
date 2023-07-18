@@ -94,7 +94,7 @@ def respondToRequestMsg(body, client:WebClient, ack):
     # 二重で応答するのを防ぐため、メンションの時のイベントのみ応答対象とする
     logger.info(f"respondToRequestMsg - イベント種別： {type}")
     if type == 'app_mention':
-        respond_to_message.respond_to_message(body=body,client=client,logger)
+        respond_to_message.respond_to_message(body=body,client=client,logger=logger)
 
 # __name__はPythonにおいて特別な意味を持つ変数です。
 # 具体的にはスクリプトの名前を値として保持します。
