@@ -30,7 +30,7 @@ SLACK_LOADING_MESSAGE_VIEW = \
             "elements": [
                 {
                     "type": "mrkdwn",
-                    "text": ":now-loading:"
+                    "text": env.get_env_variable("OPEN_AI_MODEL") + "で処理中... :now-loading:"
                 }
             ]
         }
