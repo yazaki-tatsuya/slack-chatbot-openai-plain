@@ -97,12 +97,9 @@ def generate_response_v2(prompt) ->str:
         temperature=0.5
     )
 
-    # APIを使用して、応答を生成します
-    #   モデルにPrompt（入力）を与えCompletion（出力）を取得する
-    #   SystemMessage: OpenAIに事前に連携したい情報。キャラ設定や前提知識など。
-    #   HumanMessage: OpenAIに聞きたい質問
-    response = llm(messages=[HumanMessage(content=prompt)])
-    
+    # LLMモデル実行クラスのインスタンス化
+    llm_exec = LlmModelExecuter(llm,prompt)
+    response = llm_exec.exec_llm_model()
     
     # 文字列から必要なSystemMessageのみを抽出（以下例で言うaaaaaの部分のみ）
     # [SystemMessage(content='aaaaa', additional_kwargs={}), HumanMessage(content='bbbbb', additional_kwargs={}, example=False)]
@@ -115,3 +112,22 @@ def generate_response_v2(prompt) ->str:
         content = response.content
     print("============ generate_response : COMPLETION："+str(response.content))
     return content
+
+class LlmModelExecuter:
+    """
+    言語モデルを実行するクラス
+    """
+    def __init__(self, 
+                 llm_chat:ChatOpenAI, 
+                 prompt:str) -> None:
+        self.llm_chat = llm_chat
+        self.prompt = prompt
+
+    def execute_llm_model(self) ->schema.BaseMessage:
+        # APIを使用して、応答を生成します
+        #   モデルにPrompt（入力）を与えCompletion（出力）を取得する
+        #   SystemMessage: OpenAIに事前に連携したい情報。キャラ設定や前提知識など。
+        #   HumanMessage: OpenAIに聞きたい質問
+        response = self.llm_chat(messages=[HumanMessage(content=self.prompt)])
+
+        return response
