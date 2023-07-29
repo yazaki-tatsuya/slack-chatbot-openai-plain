@@ -103,7 +103,7 @@ def get_thread_history(
 
 class ConversationInfoSlack(ConversationInfo):
     """
-    TaskInputChatを継承した子クラス
+    ConversationInfoを継承した子クラス
     Slackからのメッセージ(処理依頼)に対して、メッセージ情報を保持するためのクラス
     """
     def __init__(self, 

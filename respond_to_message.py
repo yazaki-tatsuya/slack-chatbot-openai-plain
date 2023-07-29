@@ -5,6 +5,8 @@ import re
 import time
 # OpenAI
 import openai
+import tiktoken
+from tiktoken.core import Encoding
 import pkg_resources
 openai.api_key = env.get_env_variable('OPEN_AI_KEY')
 model=env.get_env_variable('MODEL')
@@ -72,7 +74,8 @@ def respond_to_message(body, client: WebClient,logger:logging.Logger):
         logger.info(f"respond_to_message - メッセージのビルド完了： {str(conversation_info._messages)}")
         # OpenAIからの返答を生成
         
-        output_text = generate_response_v2(str(conversation_info._messages))
+        output_text = generate_response_v2(conversation_info._messages)
+        # output_text = generate_response_v2(str(conversation_info._messages))
         time.sleep(1)  # n秒待機 (実施しないと「The server responded with: {'ok': False, 'error': 'no_text'}」になる)
         # # Slackに返答
         client.chat_postMessage(channel=channel, text=output_text ,thread_ts=ts)
@@ -86,8 +89,7 @@ def respond_to_message(body, client: WebClient,logger:logging.Logger):
         client.chat_delete(channel=channel, ts=loading_message_ts)
 
 def generate_response_v2(prompt) ->str:
-
-    print("============ generate_response : TOTAL_PROMPT（過去分含む）："+prompt)
+    print("============ generate_response : TOTAL_PROMPT（過去分含む）："+str(prompt))
     
     # 言語モデル（OpenAIのチャットモデル）のラッパークラスをインスタンス化
     llm = ChatOpenAI(
@@ -97,12 +99,9 @@ def generate_response_v2(prompt) ->str:
         temperature=0.5
     )
 
-    # APIを使用して、応答を生成します
-    #   モデルにPrompt（入力）を与えCompletion（出力）を取得する
-    #   SystemMessage: OpenAIに事前に連携したい情報。キャラ設定や前提知識など。
-    #   HumanMessage: OpenAIに聞きたい質問
-    response = llm(messages=[HumanMessage(content=prompt)])
-    
+    # LLMモデル実行クラスのインスタンス化
+    llm_exec = LlmModelExecuter(llm,prompt)
+    response = llm_exec.execute_llm_model()
     
     # 文字列から必要なSystemMessageのみを抽出（以下例で言うaaaaaの部分のみ）
     # [SystemMessage(content='aaaaa', additional_kwargs={}), HumanMessage(content='bbbbb', additional_kwargs={}, example=False)]
@@ -115,3 +114,33 @@ def generate_response_v2(prompt) ->str:
         content = response.content
     print("============ generate_response : COMPLETION："+str(response.content))
     return content
+
+class LlmModelExecuter:
+    """
+    言語モデルを実行するクラス
+    """
+    def __init__(self, 
+                 llm_chat:ChatOpenAI, 
+                 prompt:list[schema.BaseMessage]) -> None:
+        self.llm_chat = llm_chat
+        self.prompt = prompt
+
+    def execute_llm_model(self) ->schema.BaseMessage:
+
+        # 元のメッセージリストから、contentのみを抽出し、新しいリストに格納
+        content_str = ""
+        for message in self.prompt:
+            print(message)
+            content_str += message.content
+        encoding: Encoding = tiktoken.encoding_for_model("gpt-4")
+        tokens = encoding.encode(content_str)
+        tokens_count = len(tokens)
+        print("================================= TOKEN_NUM = "+str(tokens_count))
+
+        # APIを使用して、応答を生成します
+        #   モデルにPrompt（入力）を与えCompletion（出力）を取得する
+        #   SystemMessage: OpenAIに事前に連携したい情報。キャラ設定や前提知識など。
+        #   HumanMessage: OpenAIに聞きたい質問
+        response = self.llm_chat(messages=[HumanMessage(content=str(self.prompt))])
+
+        return response
