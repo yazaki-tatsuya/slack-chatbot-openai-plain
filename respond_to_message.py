@@ -19,6 +19,7 @@ from langchain_community.chat_models import ChatOpenAI
 # from langchain.chat_models import AzureChatOpenAI
 # from langchain.schema import HumanMessage
 from langchain.schema.messages import HumanMessage
+from langchain_core.messages.ai import AIMessage
 
 # ロギング
 import traceback
@@ -75,17 +76,38 @@ def respond_to_message(body, client: WebClient,logger:logging.Logger):
         conversation_info.build_messages()
 
         logger.info(f"respond_to_message - メッセージのビルド完了： {str(conversation_info._messages)}")
-  
-        # OpenAIからの返答を生成
+        
         # Function Callingによる呼び出し関数の判断
         execute_function_info = generate_response_function_calling(conversation_info._messages,get_function_descriptions())
-        # output_text = generate_response_v2(conversation_info._messages)
-        # output_text = generate_response_v2(str(conversation_info._messages))
+        logger.info(f"respond_to_message - 使用する関数の判定が完了： {str(execute_function_info)}")
+        # 判定結果から実行対象の関数名を取得する
+        chosen_function = execute_function_info.additional_kwargs['function_call']['name']
+
+        # (1) 呼び出し関数が「chat_with_gpt」の場合
+        if chosen_function=="chat_with_gpt":
+            # OpenAIからの返答を生成
+            output_text = generate_response_v2(conversation_info._messages)
+            # output_text = generate_response_v2(str(conversation_info._messages))
+            time.sleep(1)  # n秒待機 (実施しないと「The server responded with: {'ok': False, 'error': 'no_text'}」になる)
+            logger.info(f"respond_to_message - (1)chat_with_gptの応答予定内容： {str(output_text)}")
+
+            # Slackに応答
+            client.chat_postMessage(channel=channel, text=output_text ,thread_ts=ts)
         
-        time.sleep(1)  # n秒待機 (実施しないと「The server responded with: {'ok': False, 'error': 'no_text'}」になる)
-        # Slackに返答
-        # client.chat_postMessage(channel=channel, text=output_text ,thread_ts=ts)
-        client.chat_postMessage(channel=channel, text=str(execute_function_info) ,thread_ts=ts)
+        # (2) 呼び出し関数が「chat_with_gpt」以下の場合 (「get_flight_info」の場合)
+        else:
+            # 判定結果から関数の引数を取得
+            arguments = json.loads(execute_function_info.additional_kwargs['function_call']['arguments'])
+            origin = arguments.get("departure")
+            destination = arguments.get("destination")
+
+            # 該当の関数を呼び出し
+            chosen_function = eval(execute_function_info.additional_kwargs['function_call']['name'])
+            flight = chosen_function(origin, destination)
+            logger.info(f"respond_to_message - (2)get_flight_infoの応答予定内容： {str(flight)}")
+        
+            # Slackに応答
+            client.chat_postMessage(channel=channel, text=str(flight) ,thread_ts=ts)
 
     except Exception as e:
         logger.info(f"respond_to_message - 例外発生： {str(e)}")
@@ -176,7 +198,7 @@ def get_function_descriptions():
         },
         {
             "name": "chat_with_gpt",
-            "description": "一般的なGPTとの対話用。フライト情報取得以外のものは、基本こちらに流す。",
+            "description": "フライト情報取得「以外」のものは、全てこちらを使う",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -191,7 +213,7 @@ def get_function_descriptions():
     ]
     return function_descriptions
 
-def generate_response_function_calling(user_prompt,function_descriptions) ->str:
+def generate_response_function_calling(user_prompt,function_descriptions) ->AIMessage:
     print("============ function_calling : TOTAL_PROMPT（過去分含む）："+str(user_prompt))
 
     # llmモデルのインスタンス生成
@@ -206,17 +228,20 @@ def generate_response_function_calling(user_prompt,function_descriptions) ->str:
         [HumanMessage(content=str(user_prompt))],
         functions=function_descriptions
     )
-    # Function Callingの出力から関数の引数を取得
-    arguments = json.loads(first_response.additional_kwargs['function_call']['arguments'])
-    origin = arguments.get("departure")
-    destination = arguments.get("destination")
+    print(type(first_response))
+    return first_response
 
-    # 取得した引数を与えて、関数を呼び出し
-    chosen_function = eval(first_response.additional_kwargs['function_call']['name'])
-    flight = chosen_function(origin, destination)
+    # # 判定結果から関数の引数を取得
+    # arguments = json.loads(first_response.additional_kwargs['function_call']['arguments'])
+    # origin = arguments.get("departure")
+    # destination = arguments.get("destination")
 
-    print("============ function_calling : COMPLETION："+str(flight))
-    return flight
+    # # 取得した引数を与えて、関数を呼び出し
+    # chosen_function = eval(first_response.additional_kwargs['function_call']['name'])
+    # flight = chosen_function(origin, destination)
+
+    # print("============ function_calling : COMPLETION："+str(flight))
+    # return flight
 
 # 出発地と目的地を引数としてフライト情報を取得する関数
 def get_flight_info(departure, destination):
