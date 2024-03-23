@@ -1,6 +1,8 @@
 from slack_sdk import WebClient
 import conversation_util
+from datetime import datetime, timedelta
 import env
+import json
 import re
 import time
 # OpenAI
@@ -13,9 +15,10 @@ model=env.get_env_variable('MODEL')
 openai_version = pkg_resources.get_distribution("openai").version
 # langchain
 from langchain import schema
-from langchain.chat_models import ChatOpenAI
+from langchain_community.chat_models import ChatOpenAI
 # from langchain.chat_models import AzureChatOpenAI
-from langchain.schema import HumanMessage
+# from langchain.schema import HumanMessage
+from langchain.schema.messages import HumanMessage
 
 # ロギング
 import traceback
@@ -72,13 +75,17 @@ def respond_to_message(body, client: WebClient,logger:logging.Logger):
         conversation_info.build_messages()
 
         logger.info(f"respond_to_message - メッセージのビルド完了： {str(conversation_info._messages)}")
+  
         # OpenAIからの返答を生成
-        
-        output_text = generate_response_v2(conversation_info._messages)
+        # Function Callingによる呼び出し関数の判断
+        execute_function_info = generate_response_function_calling(conversation_info._messages,get_function_descriptions())
+        # output_text = generate_response_v2(conversation_info._messages)
         # output_text = generate_response_v2(str(conversation_info._messages))
+        
         time.sleep(1)  # n秒待機 (実施しないと「The server responded with: {'ok': False, 'error': 'no_text'}」になる)
-        # # Slackに返答
-        client.chat_postMessage(channel=channel, text=output_text ,thread_ts=ts)
+        # Slackに返答
+        # client.chat_postMessage(channel=channel, text=output_text ,thread_ts=ts)
+        client.chat_postMessage(channel=channel, text=str(execute_function_info) ,thread_ts=ts)
 
     except Exception as e:
         logger.info(f"respond_to_message - 例外発生： {str(e)}")
@@ -144,3 +151,71 @@ class LlmModelExecuter:
         response = self.llm_chat(messages=[HumanMessage(content=str(self.prompt))])
 
         return response
+
+def get_function_descriptions():
+
+    # GPTに渡す関数の説明
+    function_descriptions = [
+        {
+            "name": "get_flight_info",
+            "description": "出発地と目的地の2つの情報からフライト情報を取得する",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "departure": {
+                        "type": "string",
+                        "description": "出発地の空港。(例) HND",
+                    },
+                    "destination": {
+                        "type": "string",
+                        "description": "目的地の空港。(例) CDG",
+                    },
+                },
+                "required": ["departure", "destination"],
+            },
+        }
+    ]
+    return function_descriptions
+
+def generate_response_function_calling(user_prompt,function_descriptions) ->str:
+    print("============ function_calling : TOTAL_PROMPT（過去分含む）："+str(user_prompt))
+
+    # llmモデルのインスタンス生成
+    llm = ChatOpenAI(
+        model = "gpt-3.5-turbo",
+        openai_api_key=env.get_env_variable('OPEN_AI_KEY'),
+        max_tokens=500,
+        temperature=0.5
+    )
+    # 関数の使用判定(1個目)
+    first_response = llm.predict_messages(
+        [HumanMessage(content=str(user_prompt))],
+        functions=function_descriptions
+    )
+    # Function Callingの出力から関数の引数を取得
+    arguments = json.loads(first_response.additional_kwargs['function_call']['arguments'])
+    origin = arguments.get("departure")
+    destination = arguments.get("destination")
+
+    # 取得した引数を与えて、関数を呼び出し
+    chosen_function = eval(first_response.additional_kwargs['function_call']['name'])
+    flight = chosen_function(origin, destination)
+
+    print("============ function_calling : COMPLETION："+str(flight))
+    return flight
+
+# 出発地と目的地を引数としてフライト情報を取得する関数
+def get_flight_info(departure, destination):
+    """
+    出発地と目的地の間のフライト情報を取得する関数
+    """
+    # デモのためのダミーのフライト情報（本来はDBやAPI経由で取得する）
+    flight_info = {
+        "departure": departure,
+        "destination": destination,
+        "datetime": str(datetime.now() + timedelta(hours=2)),
+        "airline": "JAL",
+        "flight": "JL0006",
+    }
+    # フライト情報をJSON形式で返す
+    return json.dumps(flight_info)
