@@ -1,5 +1,5 @@
 requests
-Flask==2.2.2
+Flask==2.3.3
 python-dotenv==1.0.0
 azure-cosmosdb-table
 
@@ -7,5 +7,5 @@ slack_bolt
 slack_sdk
 
 openai==0.27.4
-langchain
+langchain_community
 tiktoken
