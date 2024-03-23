@@ -173,7 +173,21 @@ def get_function_descriptions():
                 },
                 "required": ["departure", "destination"],
             },
-        }
+        },
+        {
+            "name": "chat_with_gpt",
+            "description": "一般的なGPTとの対話用。フライト情報取得以外のものは、基本こちらに流す。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "prompt": {
+                        "type": "string",
+                        "description": "ユーザーからの質問クエリ",
+                    },
+                },
+                "required": ["prompt"],
+            },
+        },
     ]
     return function_descriptions
 
