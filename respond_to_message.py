@@ -25,21 +25,38 @@ from langchain_core.messages.ai import AIMessage
 import traceback
 import logging
 
-# Loadingメッセージのblocks
-SLACK_LOADING_MESSAGE_VIEW = \
-{
-    "blocks": [
-        {
-            "type": "context",
-            "elements": [
+# 設定とロギングの初期化
+OPEN_AI_KEY = env.get_env_variable('OPEN_AI_KEY')
+MODEL = env.get_env_variable('OPEN_AI_MODEL')
+BOT_USER_ID = env.get_env_variable('BOT_USER_ID')
+SYSTEM_MESSAGE = env.get_env_variable('SYSTEM_MESSAGE')
+
+class SlackBotHandler:
+    def __init__(self, slack_client: WebClient):
+        self.slack_client = slack_client
+        self.chat_open_ai = ChatOpenAI(
+            model=MODEL,
+            openai_api_key=OPEN_AI_KEY,
+            max_tokens=500,
+            temperature=0.5
+        )
+
+    def send_loading_message(self, channel, ts):
+        loading_message_view = {
+            "blocks": [
                 {
-                    "type": "mrkdwn",
-                    "text": env.get_env_variable("OPEN_AI_MODEL") + "で処理中... :now-loading:"
+                    "type": "context",
+                    "elements": [
+                        {
+                            "type": "mrkdwn",
+                            "text": f"{MODEL}で処理中... :now-loading:"
+                        }
+                    ]
                 }
             ]
         }
-    ]
-}
+        resp = self.slack_client.chat_postMessage(channel=channel, thread_ts=ts, blocks=json.dumps(loading_message_view["blocks"]))
+        return resp["ts"]
 
 def respond_to_message(body, client: WebClient,logger:logging.Logger):
     try:
@@ -57,8 +74,8 @@ def respond_to_message(body, client: WebClient,logger:logging.Logger):
         #-----------------------------------
         # Loadingメッセージを通知
         #-----------------------------------
-        resp = client.chat_postMessage(channel=channel, thread_ts=ts, blocks=SLACK_LOADING_MESSAGE_VIEW["blocks"])
-        loading_message_ts = resp.get("ts", None)
+        handler = SlackBotHandler(client)
+        loading_message_ts = handler.send_loading_message(channel, ts)
 
         # やり取りに関するインスタンス生成
         conversation_info = conversation_util.ConversationInfoSlack(
