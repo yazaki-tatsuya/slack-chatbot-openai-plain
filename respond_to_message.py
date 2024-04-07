@@ -98,7 +98,11 @@ def respond_to_message(body, client: WebClient,logger:logging.Logger):
         execute_function_info = generate_response_function_calling(conversation_info._messages,get_function_descriptions())
         logger.info(f"respond_to_message - 使用する関数の判定が完了： {str(execute_function_info)}")
         # 判定結果から実行対象の関数名を取得する
-        chosen_function = execute_function_info.additional_kwargs['function_call']['name']
+        if 'function_call' in execute_function_info.additional_kwargs:
+            chosen_function = execute_function_info.additional_kwargs['function_call']['name']
+        else:
+            # function_call キーが存在しない場合のエラーハンドリング
+            chosen_function = "chat_with_gpt"
 
         # (1) 呼び出し関数が「chat_with_gpt」の場合
         if chosen_function=="chat_with_gpt":
